@@ -22,7 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT_FOLDER = os.path.join(HERE, "..")
 STATIC_FOLDER = os.path.join(ROOT_FOLDER, "dist")
 
-agent = Agent()
+agent = Agent("gpt-3.5-turbo")
 strategy = PlayStrategy(agent)
 engine = Engine(ROOT_FOLDER, strategy)
 

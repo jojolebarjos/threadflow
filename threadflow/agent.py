@@ -1,22 +1,32 @@
 import os
 
-from openai import AsyncAzureOpenAI
+from openai import AsyncAzureOpenAI, AsyncOpenAI
 
 
-def create_client():
-    # TODO improve client configuration
-    assert os.environ.get("OPENAI_API_TYPE") == "azure"
-    client = AsyncAzureOpenAI(
-        api_key=os.environ["OPENAI_API_KEY"],
-        api_version=os.environ["OPENAI_API_VERSION"],
-        azure_endpoint=os.environ["OPENAI_API_BASE"],
-    )
-    return client
+def create_client() -> AsyncOpenAI:
+
+    api_type = os.environ.get("OPENAI_API_TYPE")
+
+    if api_type == "azure":
+        return AsyncAzureOpenAI(
+            api_key=os.environ["OPENAI_API_KEY"],
+            api_version=os.environ["OPENAI_API_VERSION"],
+            azure_endpoint=os.environ["OPENAI_API_BASE"],
+        )
+
+    if api_type == "openai":
+        return AsyncOpenAI(
+            api_key=os.environ["OPENAI_API_KEY"],
+            base_url=os.environ.get("OPENAI_API_BASE"),
+        )
+
+    raise KeyError(api_type)
 
 
 class Agent:
-    def __init__(self):
+    def __init__(self, model_name: str):
         self.client = create_client()
+        self.model_name = model_name
 
     async def do_completion(self, messages) -> str:
         # TODO select deployment from config
@@ -31,7 +41,7 @@ class Agent:
 
         completion = await self.client.chat.completions.create(
             messages=messages,
-            model=model,
+            model=self.model_name,
         )
 
         # TODO log token `usage`
