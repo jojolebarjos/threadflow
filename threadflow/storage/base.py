@@ -10,10 +10,13 @@ from ..container import (
 
 
 class Storage:
-    async def authorize(self, user_id: str, password: str) -> Optional[str]:
+    async def get_user(self, user_id: str) -> User:
         raise NotImplementedError
 
-    async def get_user_by_token(self, token: str) -> Optional[User]:
+    async def get_user_hash(self, user_id: str) -> Optional[str]:
+        raise NotImplementedError
+
+    def get_secret_key(self) -> str:
         raise NotImplementedError
 
     async def is_allowed(self, session_id: str, user_id: str) -> bool:

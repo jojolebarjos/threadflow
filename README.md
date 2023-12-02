@@ -8,7 +8,7 @@
 ...
 
 ```
-pip install uvicorn fastapi pydantic pyyaml openai rapidfuzz python-multipart
+pip install uvicorn fastapi pydantic pyyaml openai rapidfuzz python-multipart python-jose[cryptography] passlib[bcrypt]
 ```
 
 ```

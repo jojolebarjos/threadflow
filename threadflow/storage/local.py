@@ -83,7 +83,6 @@ class LocalStorage(Storage):
         self.salt: str = ""
         self.users: dict[str, User] = {}
         self.user_hashes: dict[str, str] = {}
-        self.tokens: dict[str, str] = {}
         self.sessions: dict[str, _Session] = {}
         self.reload()
 
@@ -92,11 +91,9 @@ class LocalStorage(Storage):
         user_path = os.path.join(self.folder, "user.yaml")
         with open(user_path, encoding="utf-8") as file:
             config = yaml.safe_load(file)
-        print(config)
-        self.salt = config["salt"]
+        self.secret_key = config["secret_key"]
         self.users = {}
         self.user_hashes = {}
-        self.tokens = {}
         for user_id, payload in config["users"].items():
             if not re.fullmatch(USER_PATTERN, user_id):
                 raise RuntimeError(f'"{user_id}" is not a valid user identifier')
@@ -112,27 +109,17 @@ class LocalStorage(Storage):
                 session = _Session(session_folder)
                 self.sessions[session_id] = session
 
-    async def authorize(self, user_id: str, password: str) -> Optional[str]:
-        provided_hash = hash(password, self.salt)
-        actual_hash = self.user_hashes.get(user_id)
-        if provided_hash != actual_hash:
-            return None
-        while True:
-            token = secrets.token_hex(32)
-            if token not in self.tokens:
-                break
-        self.tokens[token] = user_id
-        # TODO should probably invalidate old token, if any
-        return token
+    async def get_user(self, user_id: str) -> User:
+        return self.users[user_id]
 
-    async def get_user_by_token(self, token: str) -> Optional[User]:
-        user_id = self.tokens.get(token)
-        if user_id is None:
-            return None
-        user = self.users[user_id]
-        return user
+    async def get_user_hash(self, user_id: str) -> Optional[str]:
+        return self.user_hashes.get(user_id)
+
+    def get_secret_key(self) -> str:
+        return self.secret_key
 
     async def is_allowed(self, session_id: str, user_id: str) -> bool:
+        # TODO
         raise NotImplementedError
 
     async def get_message(self, session_id: str, message_id: str) -> Message:

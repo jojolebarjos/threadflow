@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 import os
 import re
 from typing import Annotated
@@ -6,6 +7,9 @@ from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse, FileResponse, JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 
 from .agent import OpenAIAgent
 from .container import (
@@ -32,23 +36,36 @@ strategy = PlayStrategy(storage, agent)
 
 app = FastAPI()
 
+password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+EXPIRES_DELTA = 15
+ALGORITHM = "HS256"
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/token")
 
 
+def hash(password) -> str:
+    return password_context.hash(password)
+
+
 async def get_user(token: Annotated[str, Depends(oauth2_scheme)]) -> User:
-    user = await storage.get_user_by_token(token)
-    if user is None:
+    try:
+        secret_key = storage.get_secret_key()
+        payload = jwt.decode(token, secret_key, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        user = await storage.get_user(user_id)
+        return user
+
+    except (JWTError, KeyError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return user
 
 
 # TODO make sure that this is only caused by user, and not internal code...
 @app.exception_handler(KeyError)
-async def unicorn_exception_handler(request: Request, exception: KeyError):
+async def key_error_handler(request: Request, exception: KeyError):
     return JSONResponse(
         status_code=400,
         content={"detail": f'Invalid identifier "{exception.args[0]}"'},
@@ -62,17 +79,38 @@ async def get_root():
 
 
 @app.post("/api/v1/token")
-async def post_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    # TODO should we use the OAuth2 scopes?
-    token = await storage.authorize(form_data.username, form_data.password)
-    if token is None:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-    return {"access_token": token, "token_type": "bearer"}
+async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+    user_id = form_data.username
+    user_hash = await storage.get_user_hash(user_id)
+    if user_hash:
+        password = form_data.password
+        if password_context.verify(password, user_hash):
+            now = datetime.now(timezone.utc)
+            expire = now + timedelta(minutes=EXPIRES_DELTA)
+            claims = {
+                "sub": user_id,
+                "exp": expire,
+            }
+            secret_key = storage.get_secret_key()
+            token = jwt.encode(claims, secret_key, ALGORITHM)
+            return {
+                "access_token": token,
+                "token_type": "bearer",
+            }
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Incorrect username or password",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 @app.get("/api/v1/users/me")
 async def get_character_list(user: Annotated[User, Depends(get_user)]) -> User:
     return user
+
+
+# TODO add session authorization
 
 
 @app.get("/api/v1/sessions/{session_id}/characters")
