@@ -8,7 +8,7 @@
 ...
 
 ```
-pip install uvicorn fastapi pydantic pyyaml openai rapidfuzz
+pip install uvicorn fastapi pydantic pyyaml openai rapidfuzz python-multipart
 ```
 
 ```

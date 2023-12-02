@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from hashlib import sha3_512
 import json
 import os
 import re
@@ -12,13 +13,19 @@ import yaml
 import rapidfuzz
 
 from ..container import (
-    Message,
     Character,
+    Message,
+    User,
 )
 
 from .base import Storage
 
 
+def hash(password: str, salt: str) -> str:
+    return sha3_512((salt + password).encode("utf-8")).hexdigest()
+
+
+USER_PATTERN = r"\w+"
 CHARACTER_PATTERN = r"[a-z][a-z0-9\-]*[a-z0-9]?"
 
 
@@ -73,10 +80,30 @@ class _Session:
 class LocalStorage(Storage):
     def __init__(self, folder: str):
         self.folder = folder
+        self.salt: str = ""
+        self.users: dict[str, User] = {}
+        self.user_hashes: dict[str, str] = {}
+        self.tokens: dict[str, str] = {}
         self.sessions: dict[str, _Session] = {}
         self.reload()
 
     def reload(self):
+        # Load users
+        user_path = os.path.join(self.folder, "user.yaml")
+        with open(user_path, encoding="utf-8") as file:
+            config = yaml.safe_load(file)
+        print(config)
+        self.salt = config["salt"]
+        self.users = {}
+        self.user_hashes = {}
+        self.tokens = {}
+        for user_id, payload in config["users"].items():
+            if not re.fullmatch(USER_PATTERN, user_id):
+                raise RuntimeError(f'"{user_id}" is not a valid user identifier')
+            self.users[user_id] = User(user_id, payload["name"])
+            self.user_hashes[user_id] = payload["hash"]
+
+        # Load sessions
         self.sessions = {}
         for session_id in os.listdir(self.folder):
             session_folder = os.path.join(self.folder, session_id)
@@ -84,6 +111,29 @@ class LocalStorage(Storage):
             if os.path.exists(config_path):
                 session = _Session(session_folder)
                 self.sessions[session_id] = session
+
+    async def authorize(self, user_id: str, password: str) -> Optional[str]:
+        provided_hash = hash(password, self.salt)
+        actual_hash = self.user_hashes.get(user_id)
+        if provided_hash != actual_hash:
+            return None
+        while True:
+            token = secrets.token_hex(32)
+            if token not in self.tokens:
+                break
+        self.tokens[token] = user_id
+        # TODO should probably invalidate old token, if any
+        return token
+
+    async def get_user_by_token(self, token: str) -> Optional[User]:
+        user_id = self.tokens.get(token)
+        if user_id is None:
+            return None
+        user = self.users[user_id]
+        return user
+
+    async def is_allowed(self, session_id: str, user_id: str) -> bool:
+        raise NotImplementedError
 
     async def get_message(self, session_id: str, message_id: str) -> Message:
         session = self.sessions[session_id]

@@ -1,9 +1,11 @@
 import os
 import re
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse, FileResponse, JSONResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 from .agent import OpenAIAgent
 from .container import (
@@ -12,6 +14,7 @@ from .container import (
     MessageList,
     Character,
     CharacterList,
+    User,
     UserMessageRequest,
 )
 from .storage import LocalStorage
@@ -29,6 +32,19 @@ strategy = PlayStrategy(storage, agent)
 
 app = FastAPI()
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/token")
+
+
+async def get_user(token: Annotated[str, Depends(oauth2_scheme)]) -> User:
+    user = await storage.get_user_by_token(token)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
 
 # TODO make sure that this is only caused by user, and not internal code...
 @app.exception_handler(KeyError)
@@ -43,6 +59,20 @@ async def unicorn_exception_handler(request: Request, exception: KeyError):
 async def get_root():
     # return RedirectResponse("/static/index.html")
     return FileResponse(os.path.join(STATIC_FOLDER, "index.html"))
+
+
+@app.post("/api/v1/token")
+async def post_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+    # TODO should we use the OAuth2 scopes?
+    token = await storage.authorize(form_data.username, form_data.password)
+    if token is None:
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@app.get("/api/v1/users/me")
+async def get_character_list(user: Annotated[User, Depends(get_user)]) -> User:
+    return user
 
 
 @app.get("/api/v1/sessions/{session_id}/characters")

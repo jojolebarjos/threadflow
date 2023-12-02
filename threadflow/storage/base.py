@@ -3,12 +3,22 @@ from __future__ import annotations
 from typing import Optional
 
 from ..container import (
-    Message,
     Character,
+    Message,
+    User,
 )
 
 
 class Storage:
+    async def authorize(self, user_id: str, password: str) -> Optional[str]:
+        raise NotImplementedError
+
+    async def get_user_by_token(self, token: str) -> Optional[User]:
+        raise NotImplementedError
+
+    async def is_allowed(self, session_id: str, user_id: str) -> bool:
+        raise NotImplementedError
+
     async def get_message(self, session_id: str, message_id: str) -> Message:
         raise NotImplementedError
 
