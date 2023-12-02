@@ -2,6 +2,8 @@ import os
 
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 
+from .base import Agent
+
 
 def create_client() -> AsyncOpenAI:
     api_type = os.environ.get("OPENAI_API_TYPE")
@@ -22,7 +24,7 @@ def create_client() -> AsyncOpenAI:
     raise KeyError(api_type)
 
 
-class Agent:
+class OpenAIAgent(Agent):
     def __init__(self, model_name: str):
         self.client = create_client()
         self.model_name = model_name

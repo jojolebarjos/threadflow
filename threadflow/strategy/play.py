@@ -4,12 +4,13 @@ import re
 from typing import Optional
 
 from ..container import AgentMessageRequest
+from ..agent import Agent
 
 from .base import Strategy
 
 
 class PlayStrategy(Strategy):
-    def __init__(self, agent):
+    def __init__(self, agent: Agent):
         self.agent = agent
 
     async def build_prompt(

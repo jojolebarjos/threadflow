@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from .agent import Agent
+from .agent import OpenAIAgent
 from .container import (
     AgentMessageRequest,
     Message,
@@ -22,7 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT_FOLDER = os.path.join(HERE, "..")
 STATIC_FOLDER = os.path.join(ROOT_FOLDER, "dist")
 
-agent = Agent("gpt-3.5-turbo")
+agent = OpenAIAgent("gpt-3.5-turbo")
 strategy = PlayStrategy(agent)
 engine = Engine(ROOT_FOLDER, strategy)
 
