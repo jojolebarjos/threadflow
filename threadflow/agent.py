@@ -4,7 +4,6 @@ from openai import AsyncAzureOpenAI, AsyncOpenAI
 
 
 def create_client() -> AsyncOpenAI:
-
     api_type = os.environ.get("OPENAI_API_TYPE")
 
     if api_type == "azure":

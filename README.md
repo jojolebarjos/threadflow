@@ -11,6 +11,12 @@
 pip install uvicorn fastapi pydantic pyyaml openai rapidfuzz
 ```
 
+```
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files
+```
+
 ...
 
 ```

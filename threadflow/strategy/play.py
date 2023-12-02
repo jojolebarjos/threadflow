@@ -97,7 +97,7 @@ class PlayStrategy(Strategy):
                 Given the context, the characters that are in the scene, and the
                 current script, what does {name} say next? Only reply what is said by
                 the character, nothing more.
-                
+
                 """
             ).format(
                 context=session.pre_prompt,

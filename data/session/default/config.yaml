@@ -3,7 +3,7 @@ pre-prompt: >-
   A medieval-like era, in the city of Baldur's Gate.
 
 personas:
-  
+
   #narrator:
   #  name: Narrator
   #  color: gray
@@ -52,7 +52,7 @@ personas:
       Appears as a charismatic and vivacious individual, radiating a magnetic charm
       that draws others in, leaving a lasting impression of warmth and sociability.
     private-prompt: >-
-      Regarded as the life of the party among his friends, known for his infectious 
+      Regarded as the life of the party among his friends, known for his infectious
       energy and witty sense of humor that effortlessly brings people together.
 
   gardener:
