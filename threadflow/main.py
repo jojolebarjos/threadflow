@@ -10,8 +10,8 @@ from .container import (
     AgentMessageRequest,
     Message,
     MessageList,
-    Persona,
-    PersonaList,
+    Character,
+    CharacterList,
     UserMessageRequest,
 )
 from .engine import Engine
@@ -47,17 +47,17 @@ async def get_root():
 # TODO proper status codes for bad requests
 
 
-@app.get("/api/v1/sessions/{session_id}/personas")
-async def get_persona_list(session_id: str) -> PersonaList:
+@app.get("/api/v1/sessions/{session_id}/characters")
+async def get_character_list(session_id: str) -> CharacterList:
     session = engine.sessions[session_id]
-    entries = list(session.personas.values())
-    return PersonaList(entries)
+    entries = list(session.characters.values())
+    return CharacterList(entries)
 
 
-@app.get("/api/v1/sessions/{session_id}/personas/{persona_id}")
-async def get_persona(session_id: str, persona_id: str) -> Persona:
+@app.get("/api/v1/sessions/{session_id}/characters/{character_id}")
+async def get_character(session_id: str, character_id: str) -> Character:
     session = engine.sessions[session_id]
-    return session.personas[persona_id]
+    return session.characters[character_id]
 
 
 @app.get("/api/v1/sessions/{session_id}/messages")
@@ -73,12 +73,12 @@ async def get_message(session_id: str, message_id: str) -> Message:
     return session.messages[message_id]
 
 
-@app.get("/api/v1/sessions/{session_id}/messages/{message_id}/personas")
-async def get_personas_at_message(session_id: str, message_id: str) -> PersonaList:
+@app.get("/api/v1/sessions/{session_id}/messages/{message_id}/characters")
+async def get_characters_at_message(session_id: str, message_id: str) -> CharacterList:
     session = engine.sessions[session_id]
-    persona_ids = await session.get_active_personas(message_id)
-    entries = [session.personas[persona_id] for persona_id in persona_ids]
-    return PersonaList(entries)
+    character_ids = await session.get_active_characters(message_id)
+    entries = [session.characters[character_id] for character_id in character_ids]
+    return CharacterList(entries)
 
 
 @app.post("/api/v1/sessions/{session_id}/messages/user")

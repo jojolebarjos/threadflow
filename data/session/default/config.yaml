@@ -2,7 +2,7 @@
 pre-prompt: >-
   A medieval-like era, in the city of Baldur's Gate.
 
-personas:
+characters:
 
   #narrator:
   #  name: Narrator

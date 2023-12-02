@@ -7,22 +7,22 @@ from pydantic.dataclasses import dataclass
 
 
 @dataclass
-class Persona:
-    persona_id: str
+class Character:
+    character_id: str
     name: str
     color: str
 
 
 @dataclass
-class PersonaList:
-    entries: list[Persona]
+class CharacterList:
+    entries: list[Character]
 
 
 @dataclass
 class Message:
     message_id: str
     parent_message_id: Optional[str]
-    persona_id: str
+    character_id: str
     timestamp: datetime
     content: str
 
@@ -35,11 +35,11 @@ class MessageList:
 @dataclass
 class UserMessageRequest:
     parent_message_id: Optional[str]
-    persona_id: str
+    character_id: str
     content: str
 
 
 @dataclass
 class AgentMessageRequest:
     parent_message_id: Optional[str]
-    persona_id: Optional[str]
+    character_id: Optional[str]

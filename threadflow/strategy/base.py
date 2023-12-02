@@ -10,7 +10,7 @@ class Strategy:
         self,
         session,
         parent_message_id: Optional[str],
-        persona_id: str,
+        character_id: str,
     ) -> str:
         raise NotImplementedError
 
@@ -25,7 +25,7 @@ class Strategy:
         messages = []
         while message_id is not None:
             message = session.messages[message_id]
-            if include_system or message.persona_id != "system":
+            if include_system or message.character_id != "system":
                 messages.append(message)
             message_id = message.parent_message_id
 
@@ -33,5 +33,5 @@ class Strategy:
 
         return messages
 
-    async def choose_persona(self, session, message_id: str) -> str:
+    async def choose_character(self, session, message_id: str) -> str:
         raise NotImplementedError

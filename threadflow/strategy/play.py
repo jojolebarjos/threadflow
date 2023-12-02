@@ -17,7 +17,7 @@ class PlayStrategy(Strategy):
         self,
         session,
         parent_message_id: Optional[str],
-        persona_id: str,
+        character_id: str,
     ) -> str:
         messages = await self.build_messages(session, parent_message_id)
 
@@ -29,13 +29,13 @@ class PlayStrategy(Strategy):
         )
 
         # TODO should fetch participant list more cleverly
-        participant_ids = list(session.personas.keys())
+        participant_ids = list(session.characters.keys())
 
         participants = []
         for i in participant_ids:
-            name = session.personas[i].name
+            name = session.characters[i].name
             prompt = session.public_prompts[i]
-            if i == persona_id:
+            if i == character_id:
                 prompt += " " + session.private_prompts[i]
             participant = name, prompt
             participants.append(participant)
@@ -46,7 +46,7 @@ class PlayStrategy(Strategy):
 
         fragments = []
         for message in messages:
-            name = session.personas[message.persona_id].name
+            name = session.characters[message.character_id].name
             content = message.content.strip()
             fragment = f"{name.upper()}:\n{content}"
             fragments.append(fragment)
@@ -74,7 +74,7 @@ class PlayStrategy(Strategy):
             ).format(
                 context=session.pre_prompt,
                 characters=participants_prompt,
-                name=session.personas[persona_id].name,
+                name=session.characters[character_id].name,
             )
 
         else:
@@ -104,7 +104,7 @@ class PlayStrategy(Strategy):
                 context=session.pre_prompt,
                 characters=participants_prompt,
                 script=history_prompt,
-                name=session.personas[persona_id].name,
+                name=session.characters[character_id].name,
             )
 
         return [
@@ -122,24 +122,24 @@ class PlayStrategy(Strategy):
         self,
         session,
         parent_message_id: Optional[str],
-        persona_id: str,
+        character_id: str,
     ) -> str:
-        prompt = await self.build_prompt(session, parent_message_id, persona_id)
+        prompt = await self.build_prompt(session, parent_message_id, character_id)
         print(repr(prompt))
 
         content = await self.agent.do_completion(prompt)
         # TODO use stop to avoid multi answers by agent
         print(repr(content))
 
-        name = session.personas[persona_id].name
+        name = session.characters[character_id].name
         content = re.sub(f"^\\s*{name}\\s*:\\s*", "", content, flags=re.IGNORECASE)
         return content
 
-    async def choose_persona(self, session, message_id: str) -> str:
+    async def choose_character(self, session, message_id: str) -> str:
         # TODO ask agent
-        persona_ids = await session.get_active_personas(message_id)
-        persona_id = random.choice(persona_ids)
-        return persona_id
+        character_ids = await session.get_active_characters(message_id)
+        character_id = random.choice(character_ids)
+        return character_id
 
 
 def clean(text):

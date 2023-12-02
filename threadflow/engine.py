@@ -16,14 +16,14 @@ import rapidfuzz
 from .container import (
     AgentMessageRequest,
     Message,
-    Persona,
+    Character,
     UserMessageRequest,
 )
 
 from .strategy import Strategy
 
 
-PERSONA_PATTERN = r"[a-z][a-z0-9\-]*[a-z0-9]?"
+CHARACTER_PATTERN = r"[a-z][a-z0-9\-]*[a-z0-9]?"
 
 
 class Engine:
@@ -48,7 +48,7 @@ class Session:
         self.engine = engine
         self.session_folder = session_folder
         self.config = {}
-        self.personas = {}
+        self.characters = {}
         self.pre_prompt = ""
         self.post_prompt = ""
         self.public_prompts = {}
@@ -64,17 +64,22 @@ class Session:
         self.pre_prompt = self.config["pre-prompt"]
         self.post_prompt = self.config["post-prompt"]
 
-        self.personas = {}
-        for persona_id, properties in self.config["personas"].items():
-            if not re.fullmatch(PERSONA_PATTERN, persona_id) or persona_id == "system":
-                raise RuntimeError(f'"{persona_id}" is not a valid persona identifier')
-            self.personas[persona_id] = Persona(
-                persona_id,
+        self.characters = {}
+        for character_id, properties in self.config["characters"].items():
+            if (
+                not re.fullmatch(CHARACTER_PATTERN, character_id)
+                or character_id == "system"
+            ):
+                raise RuntimeError(
+                    f'"{character_id}" is not a valid character identifier'
+                )
+            self.characters[character_id] = Character(
+                character_id,
                 properties["name"],
                 properties.get("color", "black"),
             )
-            self.public_prompts[persona_id] = properties["public-prompt"]
-            self.private_prompts[persona_id] = properties["private-prompt"]
+            self.public_prompts[character_id] = properties["public-prompt"]
+            self.private_prompts[character_id] = properties["private-prompt"]
 
         # TODO better serialization strategy, with an actual message storage class
         history_path = os.path.join(self.session_folder, "history.jl")
@@ -86,23 +91,23 @@ class Session:
                     message = Message(
                         payload["message_id"],
                         payload["parent_message_id"],
-                        payload["persona_id"],
+                        payload["character_id"],
                         datetime.fromisoformat(payload["timestamp"]),
                         payload["content"],
                     )
                     self.messages[message.message_id] = message
 
-    def match_persona(self, text) -> Optional[str]:
+    def match_character(self, text) -> Optional[str]:
         # Exact match of identifier takes precedence
-        persona_id = text.lower()
-        if persona_id in self.personas:
-            return persona_id
+        character_id = text.lower()
+        if character_id in self.characters:
+            return character_id
 
         # Otherwise, use fuzzy matching on display name
-        choices, persona_ids = zip(*[(p.name, i) for i, p in self.personas.items()])
+        choices, character_ids = zip(*[(p.name, i) for i, p in self.characters.items()])
         _, score, index = rapidfuzz.process.extractOne(text, choices)
         if score >= 50:
-            return persona_ids[index]
+            return character_ids[index]
 
         return None
 
@@ -113,7 +118,7 @@ class Session:
             if identifier not in self.messages:
                 return identifier
 
-    async def get_active_personas(self, message_id: str) -> list[str]:
+    async def get_active_characters(self, message_id: str) -> list[str]:
         # TODO refactor where we have these helpers
         messages = await self.engine.strategy.build_messages(
             self,
@@ -121,20 +126,20 @@ class Session:
             include_system=True,
         )
 
-        persona_ids = set(self.personas.keys())
+        character_ids = set(self.characters.keys())
         for message in messages:
-            if message.persona_id == "system":
+            if message.character_id == "system":
                 match = re.search(r"\((\w+)\) added", message.content)
                 if match:
-                    persona_id = match.group(1)
-                    persona_ids.add(persona_id)
+                    character_id = match.group(1)
+                    character_ids.add(character_id)
 
                 match = re.search(r"\((\w+)\) removed", message.content)
                 if match:
-                    persona_id = match.group(1)
-                    persona_ids.remove(persona_id)
+                    character_id = match.group(1)
+                    character_ids.remove(character_id)
 
-        return sorted(persona_ids)
+        return sorted(character_ids)
 
     async def handle_command(self, request: UserMessageRequest) -> str:
         command = request.content
@@ -146,18 +151,18 @@ class Session:
         payload = command[match.end() :]
 
         if name == "add":
-            persona_id = self.match_persona(payload)
-            if persona_id is None:
+            character_id = self.match_character(payload)
+            if character_id is None:
                 return f'**"{payload}" not found, cannot add.**'
             # TODO check whether it already exists
-            return f"**{self.personas[persona_id].name} ({persona_id}) added.**"
+            return f"**{self.characters[character_id].name} ({character_id}) added.**"
 
         if name == "remove":
-            persona_id = self.match_persona(payload)
-            if persona_id is None:
+            character_id = self.match_character(payload)
+            if character_id is None:
                 return f'**"{payload}" not found, cannot add.**'
             # TODO check whether it does not exists
-            return f"**{self.personas[persona_id].name} ({persona_id}) removed.**"
+            return f"**{self.characters[character_id].name} ({character_id}) removed.**"
 
         # TODO handle other commands
         return f"**Command /{name} not found.**"
@@ -165,7 +170,7 @@ class Session:
     async def make_message(
         self,
         parent_message_id: str,
-        persona_id: str,
+        character_id: str,
         content: str,
     ) -> Message:
         message_id = await self.generate_unique_identifier()
@@ -173,7 +178,7 @@ class Session:
         message = Message(
             message_id,
             parent_message_id,
-            persona_id,
+            character_id,
             timestamp,
             content,
         )
@@ -184,7 +189,7 @@ class Session:
             payload = {
                 "message_id": message.message_id,
                 "parent_message_id": message.parent_message_id,
-                "persona_id": message.persona_id,
+                "character_id": message.character_id,
                 "timestamp": message.timestamp.isoformat(),
                 "content": message.content,
             }
@@ -202,20 +207,23 @@ class Session:
             raise HTTPException(
                 400, f'Parent message "{request.parent_message_id}" not found'
             )
-        if request.persona_id not in self.personas and request.persona_id != "system":
-            raise HTTPException(400, f'Persona "{request.persona_id}" not found')
+        if (
+            request.character_id not in self.characters
+            and request.character_id != "system"
+        ):
+            raise HTTPException(400, f'Character "{request.character_id}" not found')
         is_command = request.content.startswith("/")
         if is_command:
-            persona_id = "system"
+            character_id = "system"
             content = await self.handle_command(request)
         else:
-            persona_id = request.persona_id
-            if persona_id == "system":
+            character_id = request.character_id
+            if character_id == "system":
                 raise HTTPException(400, 'Cannot add user message as "system"')
             content = request.content
         message = await self.make_message(
             request.parent_message_id,
-            persona_id,
+            character_id,
             content,
         )
         return message
@@ -225,23 +233,25 @@ class Session:
         if parent_message_id is not None and parent_message_id not in self.messages:
             raise HTTPException(400, f'Parent message "{parent_message_id}" not found')
 
-        persona_id = request.persona_id
-        if persona_id == "system":
+        character_id = request.character_id
+        if character_id == "system":
             raise HTTPException(400, 'Cannot add agent message as "system"')
-        if persona_id is not None and persona_id not in self.personas:
-            raise HTTPException(400, f'Persona "{persona_id}" not found')
+        if character_id is not None and character_id not in self.characters:
+            raise HTTPException(400, f'Character "{character_id}" not found')
 
-        if persona_id is None:
-            persona_id = await self.engine.strategy.choose_persona(
+        if character_id is None:
+            character_id = await self.engine.strategy.choose_character(
                 self,
                 parent_message_id,
             )
 
-        content = await self.engine.strategy.handle(self, parent_message_id, persona_id)
+        content = await self.engine.strategy.handle(
+            self, parent_message_id, character_id
+        )
 
         message = await self.make_message(
             parent_message_id,
-            persona_id,
+            character_id,
             content,
         )
         return message
