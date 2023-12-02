@@ -1,16 +1,4 @@
-
-pre-prompt: >-
-  A medieval-like era, in the city of Baldur's Gate.
-
 characters:
-
-  #narrator:
-  #  name: Narrator
-  #  color: gray
-  #  public-prompt: >-
-  #    Commentator of the ongoing events; nobody sees him, he is not present.
-  #  private-prompt: >-
-  #    Explains the flow of event precisely and concisely.
 
   child:
     name: Tobin
@@ -77,6 +65,3 @@ characters:
       Known among his construction peers as a reliable and hardworking team player,
       consistently demonstrating a strong work ethic and a commitment to ensuring every
       project is completed with precision and efficiency.
-
-post-prompt: >-
-  ...

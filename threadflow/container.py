@@ -11,6 +11,9 @@ class Character:
     character_id: str
     name: str
     color: str
+    # TODO improve how knowledge is managed
+    public_prompt: str
+    private_prompt: str
 
 
 @dataclass

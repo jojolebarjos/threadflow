@@ -30,9 +30,6 @@ class OpenAIAgent(Agent):
         self.model_name = model_name
 
     async def do_completion(self, messages) -> str:
-        # TODO select deployment from config
-        model = "gpt-35-turbo"
-
         # TODO `frequency_penalty`
         # TODO `logit_bias`
         # TODO `max_tokens`

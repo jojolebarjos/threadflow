@@ -3,23 +3,34 @@ import random
 import re
 from typing import Optional
 
-from ..container import AgentMessageRequest
 from ..agent import Agent
+from ..container import Message
+from ..storage import Storage
 
 from .base import Strategy
 
 
 class PlayStrategy(Strategy):
-    def __init__(self, agent: Agent):
+    def __init__(self, storage: Storage, agent: Agent):
+        self.storage = storage
         self.agent = agent
 
-    async def build_prompt(
+    async def handle(
         self,
-        session,
+        session_id: str,
         parent_message_id: Optional[str],
-        character_id: str,
-    ) -> str:
-        messages = await self.build_messages(session, parent_message_id)
+        character_id: Optional[str],
+    ) -> Message:
+        # TODO can we get that as a single call?
+        messages = await self.storage.get_message_chain(session_id, parent_message_id)
+        characters = await self.storage.get_characters_at(session_id, parent_message_id)
+
+        character_map = {character.character_id: character for character in characters}
+
+        if character_id is None:
+            target_character = random.choice(characters)
+        else:
+            target_character = character_map[character_id]
 
         system_content = clean(
             """
@@ -28,37 +39,28 @@ class PlayStrategy(Strategy):
             """
         )
 
-        # TODO should fetch participant list more cleverly
-        participant_ids = list(session.characters.keys())
+        parts = []
+        for character in characters:
+            if character is target_character:
+                prompt = character.public_prompt + " " + character.private_prompt
+            else:
+                prompt = character.public_prompt
+            part = f" - {character.name}: {prompt}"
+            parts.append(part)
+        characters_prompt = "\n".join(parts)
 
-        participants = []
-        for i in participant_ids:
-            name = session.characters[i].name
-            prompt = session.public_prompts[i]
-            if i == character_id:
-                prompt += " " + session.private_prompts[i]
-            participant = name, prompt
-            participants.append(participant)
-
-        participants_prompt = "\n\n".join(
-            f" - {name}: {prompt}" for name, prompt in participants
-        )
-
-        fragments = []
+        parts = []
         for message in messages:
-            name = session.characters[message.character_id].name
-            content = message.content.strip()
-            fragment = f"{name.upper()}:\n{content}"
-            fragments.append(fragment)
-        history_prompt = "\n\n".join(fragments)
+            if message.character_id != "system":
+                name = characters[message.character_id].name.upper()
+                content = message.content.strip()
+                part = f"{name}:\n{content}"
+                parts.append(part)
+        script_prompt = "\n\n".join(parts)
 
-        if len(messages) == 0:
+        if not script_prompt:
             user_content = clean(
                 """
-
-                ## CONTEXT
-
-                {context}
 
                 ## CHARACTERS
 
@@ -72,18 +74,13 @@ class PlayStrategy(Strategy):
 
                 """
             ).format(
-                context=session.pre_prompt,
-                characters=participants_prompt,
-                name=session.characters[character_id].name,
+                characters=characters_prompt,
+                name=target_character.name,
             )
 
         else:
             user_content = clean(
                 """
-
-                ## CONTEXT
-
-                {context}
 
                 ## CHARACTERS
 
@@ -101,13 +98,12 @@ class PlayStrategy(Strategy):
 
                 """
             ).format(
-                context=session.pre_prompt,
-                characters=participants_prompt,
-                script=history_prompt,
-                name=session.characters[character_id].name,
+                characters=characters_prompt,
+                script=script_prompt,
+                name=target_character.name,
             )
 
-        return [
+        prompt = [
             {
                 "role": "system",
                 "content": system_content,
@@ -117,29 +113,31 @@ class PlayStrategy(Strategy):
                 "content": user_content,
             },
         ]
-
-    async def handle(
-        self,
-        session,
-        parent_message_id: Optional[str],
-        character_id: str,
-    ) -> str:
-        prompt = await self.build_prompt(session, parent_message_id, character_id)
         print(repr(prompt))
 
         content = await self.agent.do_completion(prompt)
         # TODO use stop to avoid multi answers by agent
         print(repr(content))
 
-        name = session.characters[character_id].name
-        content = re.sub(f"^\\s*{name}\\s*:\\s*", "", content, flags=re.IGNORECASE)
-        return content
+        # TODO improve this, as this is not robust
+        # TODO also remove any enclosing quotes
+        content = re.sub(
+            f"^\\s*{target_character.name}\\s*:\\s*",
+            "",
+            content,
+            flags=re.IGNORECASE,
+        )
 
-    async def choose_character(self, session, message_id: str) -> str:
-        # TODO ask agent
-        character_ids = await session.get_active_characters(message_id)
-        character_id = random.choice(character_ids)
-        return character_id
+        message = await self.storage.make_message(
+            session_id,
+            parent_message_id,
+            target_character.character_id,
+            content,
+        )
+
+        # TODO log token usage with associated message_id
+
+        return message
 
 
 def clean(text):
