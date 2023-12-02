@@ -1,9 +1,9 @@
 import os
 import re
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.responses import RedirectResponse, FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from .agent import OpenAIAgent
@@ -40,13 +40,19 @@ app.add_middleware(
 )
 
 
+# TODO make sure that this is only caused by user, and not internal code...
+@app.exception_handler(KeyError)
+async def unicorn_exception_handler(request: Request, exception: KeyError):
+    return JSONResponse(
+        status_code=400,
+        content={"detail": f'Invalid identifier "{exception.args[0]}"'},
+    )
+
+
 @app.get("/")
 async def get_root():
     # return RedirectResponse("/static/index.html")
     return FileResponse(os.path.join(STATIC_FOLDER, "index.html"))
-
-
-# TODO proper status codes for bad requests
 
 
 @app.get("/api/v1/sessions/{session_id}/characters")
