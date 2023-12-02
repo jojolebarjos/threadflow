@@ -4,7 +4,6 @@ import re
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse, FileResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
 
 from .agent import OpenAIAgent
 from .container import (
@@ -29,15 +28,6 @@ agent = OpenAIAgent("gpt-3.5-turbo")
 strategy = PlayStrategy(storage, agent)
 
 app = FastAPI()
-
-# TODO better fix for CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 # TODO make sure that this is only caused by user, and not internal code...
