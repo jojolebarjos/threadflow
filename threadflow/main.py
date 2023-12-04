@@ -79,7 +79,7 @@ async def get_root():
 
 
 @app.post("/api/v1/token")
-async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+async def post_login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     user_id = form_data.username
     user_hash = await storage.get_user_hash(user_id)
     if user_hash:
@@ -106,7 +106,7 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
 
 
 @app.get("/api/v1/users/me")
-async def get_character_list(user: Annotated[User, Depends(get_user)]) -> User:
+async def get_me(user: Annotated[User, Depends(get_user)]) -> User:
     return user
 
 
