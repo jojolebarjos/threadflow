@@ -26,9 +26,10 @@ from .strategy import PlayStrategy
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT_FOLDER = os.path.join(HERE, "..")
+ROOT_FOLDER = os.path.join(HERE, "..", "..")
+print(os.path.abspath(ROOT_FOLDER))
 STORAGE_FOLDER = os.path.join(ROOT_FOLDER, "data", "session")
-STATIC_FOLDER = os.path.join(ROOT_FOLDER, "dist")
+STATIC_FOLDER = os.path.join(ROOT_FOLDER, "frontend", "public")
 
 storage = LocalStorage(STORAGE_FOLDER)
 agent = OpenAIAgent("gpt-3.5-turbo")
