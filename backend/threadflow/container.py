@@ -52,3 +52,10 @@ class UserMessageRequest:
 class AgentMessageRequest:
     parent_message_id: Optional[str]
     character_id: Optional[str]
+
+
+@dataclass
+class SystemMessageRequest:
+    parent_message_id: Optional[str]
+    added_character_ids: list[str]
+    removed_character_ids: list[str]

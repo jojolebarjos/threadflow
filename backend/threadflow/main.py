@@ -18,6 +18,7 @@ from .container import (
     MessageList,
     Character,
     CharacterList,
+    SystemMessageRequest,
     User,
     UserMessageRequest,
 )
@@ -120,6 +121,13 @@ async def get_character_list(session_id: str) -> CharacterList:
     return CharacterList(entries)
 
 
+# TODO maybe should not use this pattern, and rather use query parameter on previous endpoint?
+@app.get("/api/v1/sessions/{session_id}/characters/search")
+async def get_character(session_id: str, name: str) -> Character:
+    character = await storage.get_character_by_name(session_id, name)
+    return character
+
+
 @app.get("/api/v1/sessions/{session_id}/characters/{character_id}")
 async def get_character(session_id: str, character_id: str) -> Character:
     character = await storage.get_character(session_id, character_id)
@@ -132,57 +140,11 @@ async def get_message_list(session_id: str) -> MessageList:
     return MessageList(entries)
 
 
-@app.get("/api/v1/sessions/{session_id}/messages/{message_id}")
-async def get_message(session_id: str, message_id: str) -> Message:
-    message = await storage.get_message(session_id, message_id)
-    return message
-
-
-@app.get("/api/v1/sessions/{session_id}/messages/{message_id}/characters")
-async def get_characters_at_message(session_id: str, message_id: str) -> CharacterList:
-    entries = await storage.get_characters_at(session_id, message_id)
-    return CharacterList(entries)
-
-
-async def handle_command(session_id: str, request: UserMessageRequest) -> Message:
-    command = request.content
-    assert command.startswith("/")
-
-    match = re.match(r"/(\w*)\s*", command)
-    assert match
-    name = match.group(1).lower()
-    payload = command[match.end() :]
-
-    # TODO better command dispatcher
-    # TODO better argument parser, support multiple names for /add and /remove
-
-    if name == "add":
-        character = await storage.get_character_by_name(session_id, payload)
-        message = await storage.make_attendance_message(
-            session_id,
-            request.parent_message_id,
-            added=[character.character_id],
-        )
-        return message
-
-    if name == "remove":
-        character = await storage.get_character_by_name(session_id, payload)
-        message = await storage.make_attendance_message(
-            session_id,
-            request.parent_message_id,
-            removed=[character.character_id],
-        )
-        return message
-
-    raise KeyError(name)
-
-
 @app.post("/api/v1/sessions/{session_id}/messages/user")
-async def post_user_message(session_id: str, request: UserMessageRequest) -> Message:
-    is_command = request.content.startswith("/")
-    if is_command:
-        return await handle_command(session_id, request)
-
+async def post_user_message(
+    session_id: str,
+    request: UserMessageRequest,
+) -> Message:
     message = await storage.make_message(
         session_id,
         request.parent_message_id,
@@ -193,13 +155,43 @@ async def post_user_message(session_id: str, request: UserMessageRequest) -> Mes
 
 
 @app.post("/api/v1/sessions/{session_id}/messages/agent")
-async def post_agent_message(session_id: str, request: AgentMessageRequest) -> Message:
+async def post_agent_message(
+    session_id: str,
+    request: AgentMessageRequest,
+) -> Message:
     message = await strategy.handle(
         session_id,
         request.parent_message_id,
         request.character_id,
     )
     return message
+
+
+@app.post("/api/v1/sessions/{session_id}/messages/system")
+async def post_system_message(
+    session_id: str,
+    request: SystemMessageRequest,
+) -> Message:
+    # TODO provide more advanced commands, possibly splitted among multiple endpoints
+    message = await storage.make_attendance_message(
+        session_id,
+        request.parent_message_id,
+        added=request.added_character_ids,
+        removed=request.removed_character_ids,
+    )
+    return message
+
+
+@app.get("/api/v1/sessions/{session_id}/messages/{message_id}")
+async def get_message(session_id: str, message_id: str) -> Message:
+    message = await storage.get_message(session_id, message_id)
+    return message
+
+
+@app.get("/api/v1/sessions/{session_id}/messages/{message_id}/characters")
+async def get_characters_at_message(session_id: str, message_id: str) -> CharacterList:
+    entries = await storage.get_characters_at(session_id, message_id)
+    return CharacterList(entries)
 
 
 app.mount("/", StaticFiles(directory=STATIC_FOLDER), name="static")
